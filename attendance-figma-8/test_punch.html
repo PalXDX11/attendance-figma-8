@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Test Punch</title>
+    <link rel="stylesheet" href="assets/style.css">
+    <style>
+        .punch-wrap { max-width: 460px; margin: 0 auto; text-align: center; }
+        .clock { font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 8px 0 0; }
+        .date { color: var(--muted); margin-bottom: 24px; }
+        .punch-card { padding: 28px 24px; }
+        .punch-card input { width: 100%; text-align: center; font-size: 22px; height: 52px; margin-bottom: 14px; }
+        .punch-card button { width: 100%; height: 52px; font-size: 17px; }
+        #result { margin-top: 18px; text-align: left; display: none; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <span class="brand"><span class="brand-mark">OS</span>Oppa's Samgyeopsal</span>
+        <span class="small">Test mode (no fingerprint scanner yet)</span>
+    </div>
+
+    <div class="container">
+        <div class="punch-wrap">
+            <div class="clock" id="clock">--:--:--</div>
+            <div class="date" id="date"></div>
+
+            <div class="card punch-card">
+                <h3>Test Punch</h3>
+                <p class="small" style="margin-top:0;">Type a fingerprint ID. The scanner will do this automatically later.</p>
+                <input type="number" id="fid" placeholder="Fingerprint ID" autofocus>
+                <button type="button" id="btn" onclick="punch()">Punch</button>
+                <div id="result" class="msg"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Live clock
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock').textContent = now.toLocaleTimeString('en-GB');
+        document.getElementById('date').textContent = now.toLocaleDateString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    function show(text, type) {
+        const box = document.getElementById('result');
+        box.textContent = text;
+        box.className = 'msg ' + type;
+        box.style.display = 'block';
+    }
+
+    async function punch() {
+        const input = document.getElementById('fid');
+        const id = input.value.trim();
+        if (!id) { show('Please enter a fingerprint ID.', 'error'); return; }
+
+        const btn = document.getElementById('btn');
+        btn.disabled = true;
+
+        try {
+            const body = new URLSearchParams({ fingerprint_id: id });
+            const res = await fetch('api/punch.php', { method: 'POST', body });
+            const data = await res.json();
+
+            if (data.status === 'ok' && data.action === 'clock_in') {
+                show('Welcome, ' + data.name + '. You are clocked in.', 'success');
+            } else if (data.status === 'ok' && data.action === 'clock_out') {
+                show('Goodbye, ' + data.name + '. You worked ' + data.hours.toFixed(2) +
+                     ' hours. Pay: ₱' + Number(data.pay).toFixed(2), 'success');
+            } else {
+                show(data.message || 'Something went wrong.', 'error');
+            }
+        } catch (e) {
+            show('Could not reach the server.', 'error');
+        }
+
+        btn.disabled = false;
+        input.value = '';
+        input.focus();
+    }
+
+    // Press Enter to punch
+    document.getElementById('fid').addEventListener('keydown', e => {
+        if (e.key === 'Enter') punch();
+    });
+    </script>
+</body>
+</html>
